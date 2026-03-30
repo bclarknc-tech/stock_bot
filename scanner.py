@@ -50,7 +50,8 @@ VOLUME_SPIKE_MULTIPLIER = float(os.getenv("VOLUME_SPIKE_MULTIPLIER", 3.0))
 TOP_N = int(os.getenv("TOP_N", 10))              # how many gainers/losers to report
 
 # ── Alpaca client ──────────────────────────────────────────────────────────
-api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url="https://api.alpaca.markets")
+log.info("KEY CHECK: %s", ALPACA_API_KEY[:8] if ALPACA_API_KEY else "MISSING")
+api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url="https://paper-api.alpaca.markets")
 data_client = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url=ALPACA_BASE_URL)
 
 
