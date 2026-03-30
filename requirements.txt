@@ -1,0 +1,3 @@
+alpaca-trade-api==3.3.2
+pandas==2.2.2
+schedule==1.2.2

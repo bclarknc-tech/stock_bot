@@ -1,0 +1,17 @@
+[Unit]
+Description=Stock Market Scanner Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/stock_bot
+EnvironmentFile=/home/ubuntu/stock_bot/.env
+ExecStart=/home/ubuntu/stock_bot/venv/bin/python scanner.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
