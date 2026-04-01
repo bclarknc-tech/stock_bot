@@ -26,6 +26,7 @@
   --blue:     #58a6ff;
   --blue-dim: #0d2044;
   --purple:   #bc8cff;
+  --purple-dim:#2a1a4a;
   --mono:     'IBM Plex Mono', monospace;
   --sans:     'IBM Plex Sans', sans-serif;
 }
@@ -185,6 +186,156 @@ main {
   font-family: var(--mono);
 }
 
+/* ── Filter bar ── */
+.filter-bar {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 32px;
+  height: 17px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 17px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--blue-dim);
+  border-color: var(--blue);
+}
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(15px);
+  background: var(--blue);
+}
+
+.toggle-text {
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.toggle-text span {
+  color: var(--muted);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.filter-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.noise-count-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 10px;
+}
+.noise-count-badge span {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+/* ── Tab strip ── */
+.tab-strip {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+.tab-btn.noise-tab.active {
+  color: var(--purple);
+  border-bottom-color: var(--purple);
+}
+.tab-badge {
+  display: inline-block;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 9px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+/* ── Tab content ── */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
 /* ── Grid panels ── */
 .panels {
   display: grid;
@@ -205,6 +356,14 @@ main {
   border-radius: 6px;
   overflow: hidden;
   animation: fadeUp 0.5s ease both;
+}
+
+/* noise panel gets a subtle purple tint */
+.panel.noise {
+  border-color: #2a1a3d;
+}
+.panel.noise .panel-header {
+  background: #0f0b18;
 }
 
 .panel-header {
@@ -235,6 +394,21 @@ main {
   border-radius: 3px;
   border: 1px solid var(--border);
 }
+
+/* noise reason tag */
+.noise-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.noise-tag.warrant  { background: var(--purple-dim); color: var(--purple); border: 1px solid #4a2a7a; }
+.noise-tag.penny    { background: var(--red-dim);    color: var(--red);    border: 1px solid #6a2a2a; }
+.noise-tag.lowvol   { background: var(--bg3);        color: var(--muted);  border: 1px solid var(--border2); }
 
 /* ── Tables ── */
 .data-table {
@@ -292,20 +466,6 @@ main {
   border: 1px solid #5c4a10;
 }
 
-/* sparkline mini bars */
-.bar-container {
-  display: flex;
-  align-items: flex-end;
-  gap: 1px;
-  height: 20px;
-  width: 60px;
-}
-.bar {
-  flex: 1;
-  border-radius: 1px 1px 0 0;
-  min-height: 2px;
-}
-
 /* ── Scrollable table body ── */
 .scroll-body {
   max-height: 360px;
@@ -356,7 +516,6 @@ main {
 }
 .ticker-item { display: flex; gap: 6px; }
 .ticker-sym  { color: var(--blue); font-weight: 600; }
-.ticker-pct  {}
 
 @keyframes tickerMove {
   from { transform: translateX(0); }
@@ -411,6 +570,8 @@ footer {
   .stat-row { grid-template-columns: 1fr 1fr; }
   header { padding: 12px 16px; }
   main   { padding: 16px; }
+  .filter-bar { gap: 14px; }
+  .tab-btn { padding: 10px 12px; font-size: 10px; }
 }
 </style>
 </head>
@@ -461,80 +622,184 @@ footer {
     <div class="ticker-scroll" id="ticker"></div>
   </div>
 
-  <!-- Gainers / Losers -->
-  <div class="panels">
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title green">▲ top gainers</span>
-        <span class="panel-count" id="gainers-count">—</span>
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <span class="filter-label">filters</span>
+
+    <label class="filter-toggle">
+      <div class="toggle-switch">
+        <input type="checkbox" id="filter-warrants" checked>
+        <div class="toggle-track"></div>
       </div>
-      <div class="scroll-body">
-        <table class="data-table">
-          <thead><tr>
-            <th>symbol</th><th>price</th><th>chg %</th><th>volume</th>
-          </tr></thead>
-          <tbody id="gainers-body"><tr class="loading-row"><td colspan="4">loading…</td></tr></tbody>
-        </table>
+      <span class="toggle-text">Hide Warrants <span>(tickers ending in W)</span></span>
+    </label>
+
+    <div class="filter-divider"></div>
+
+    <label class="filter-toggle">
+      <div class="toggle-switch">
+        <input type="checkbox" id="filter-penny" checked>
+        <div class="toggle-track"></div>
       </div>
-    </div>
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title red">▼ top losers</span>
-        <span class="panel-count" id="losers-count">—</span>
+      <span class="toggle-text">Hide Penny Stocks <span>(price &lt; $1.00)</span></span>
+    </label>
+
+    <div class="filter-divider"></div>
+
+    <label class="filter-toggle">
+      <div class="toggle-switch">
+        <input type="checkbox" id="filter-lowvol" checked>
+        <div class="toggle-track"></div>
       </div>
-      <div class="scroll-body">
-        <table class="data-table">
-          <thead><tr>
-            <th>symbol</th><th>price</th><th>chg %</th><th>volume</th>
-          </tr></thead>
-          <tbody id="losers-body"><tr class="loading-row"><td colspan="4">loading…</td></tr></tbody>
-        </table>
-      </div>
+      <span class="toggle-text">Hide Low Volume <span>(vol &lt; 1,000)</span></span>
+    </label>
+
+    <div class="noise-count-badge">
+      <span id="noise-total">0</span> filtered to noise tab
     </div>
   </div>
 
-  <!-- Spikes / Pre-market -->
-  <div class="panels">
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title amber">⚡ volume spikes</span>
-        <span class="panel-count" id="spikes-count">—</span>
+  <!-- Tab strip -->
+  <div class="tab-strip">
+    <button class="tab-btn active" data-tab="main">Markets</button>
+    <button class="tab-btn noise-tab" data-tab="noise">
+      Noise / Filtered
+      <span class="tab-badge" id="noise-tab-count">0</span>
+    </button>
+  </div>
+
+  <!-- MAIN TAB -->
+  <div class="tab-pane active" id="tab-main">
+
+    <!-- Gainers / Losers -->
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title green">▲ top gainers</span>
+          <span class="panel-count" id="gainers-count">—</span>
+        </div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>volume</th>
+            </tr></thead>
+            <tbody id="gainers-body"><tr class="loading-row"><td colspan="4">loading…</td></tr></tbody>
+          </table>
+        </div>
       </div>
-      <div class="scroll-body">
-        <table class="data-table">
-          <thead><tr>
-            <th>symbol</th><th>price</th><th>chg %</th><th>spike</th><th>volume</th>
-          </tr></thead>
-          <tbody id="spikes-body"><tr class="loading-row"><td colspan="5">loading…</td></tr></tbody>
-        </table>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title red">▼ top losers</span>
+          <span class="panel-count" id="losers-count">—</span>
+        </div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>volume</th>
+            </tr></thead>
+            <tbody id="losers-body"><tr class="loading-row"><td colspan="4">loading…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title purple">◈ pre-market movers</span>
-        <span class="panel-count" id="pm-count">—</span>
-      </div>
-      <div class="pm-grid">
-        <div>
-          <div style="padding:8px 16px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">top gainers</div>
-          <div class="scroll-body" style="max-height:280px">
-            <table class="data-table">
-              <tbody id="pm-top-body"><tr class="loading-row"><td colspan="3">loading…</td></tr></tbody>
-            </table>
-          </div>
+    <!-- Spikes / Pre-market -->
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title amber">⚡ volume spikes</span>
+          <span class="panel-count" id="spikes-count">—</span>
         </div>
-        <div class="pm-divider">
-          <div style="padding:8px 16px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--red);border-bottom:1px solid var(--border);">top losers</div>
-          <div class="scroll-body" style="max-height:280px">
-            <table class="data-table">
-              <tbody id="pm-bot-body"><tr class="loading-row"><td colspan="3">loading…</td></tr></tbody>
-            </table>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>spike</th><th>volume</th>
+            </tr></thead>
+            <tbody id="spikes-body"><tr class="loading-row"><td colspan="5">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title purple">◈ pre-market movers</span>
+          <span class="panel-count" id="pm-count">—</span>
+        </div>
+        <div class="pm-grid">
+          <div>
+            <div style="padding:8px 16px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border);">top gainers</div>
+            <div class="scroll-body" style="max-height:280px">
+              <table class="data-table">
+                <tbody id="pm-top-body"><tr class="loading-row"><td colspan="3">loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pm-divider">
+            <div style="padding:8px 16px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--red);border-bottom:1px solid var(--border);">top losers</div>
+            <div class="scroll-body" style="max-height:280px">
+              <table class="data-table">
+                <tbody id="pm-bot-body"><tr class="loading-row"><td colspan="3">loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+
+  </div><!-- /tab-main -->
+
+  <!-- NOISE TAB -->
+  <div class="tab-pane" id="tab-noise">
+    <div class="panels">
+      <div class="panel noise">
+        <div class="panel-header">
+          <span class="panel-title purple">◈ filtered gainers</span>
+          <span class="panel-count" id="noise-gainers-count">—</span>
+        </div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>volume</th><th>reason</th>
+            </tr></thead>
+            <tbody id="noise-gainers-body"><tr class="loading-row"><td colspan="5">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel noise">
+        <div class="panel-header">
+          <span class="panel-title purple">◈ filtered losers</span>
+          <span class="panel-count" id="noise-losers-count">—</span>
+        </div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>volume</th><th>reason</th>
+            </tr></thead>
+            <tbody id="noise-losers-body"><tr class="loading-row"><td colspan="5">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="panels">
+      <div class="panel noise">
+        <div class="panel-header">
+          <span class="panel-title purple">◈ filtered spikes</span>
+          <span class="panel-count" id="noise-spikes-count">—</span>
+        </div>
+        <div class="scroll-body">
+          <table class="data-table">
+            <thead><tr>
+              <th>symbol</th><th>price</th><th>chg %</th><th>spike</th><th>volume</th><th>reason</th>
+            </tr></thead>
+            <tbody id="noise-spikes-body"><tr class="loading-row"><td colspan="6">loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center;padding:40px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;letter-spacing:0.04em;">
+        Filtered stocks are sorted by<br>absolute % change within each category.
+      </div>
+    </div>
+  </div><!-- /tab-noise -->
 
 </main>
 
@@ -555,8 +820,38 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+// ── Filter state ───────────────────────────────────────────────────────────
+const filters = {
+  warrants: true,
+  penny:    true,
+  lowvol:   true,
+};
+
+document.getElementById('filter-warrants').addEventListener('change', e => {
+  filters.warrants = e.target.checked;
+  applyFilters();
+});
+document.getElementById('filter-penny').addEventListener('change', e => {
+  filters.penny = e.target.checked;
+  applyFilters();
+});
+document.getElementById('filter-lowvol').addEventListener('change', e => {
+  filters.lowvol = e.target.checked;
+  applyFilters();
+});
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
 // ── Helpers ────────────────────────────────────────────────────────────────
-const fmt = n => n == null ? '—' : `$${Number(n).toFixed(2)}`;
+const fmt    = n => n == null ? '—' : `$${Number(n).toFixed(2)}`;
 const fmtPct = n => n == null ? '—' : `${n >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
 const fmtVol = n => n == null ? '—' : Number(n) >= 1e6
   ? `${(n/1e6).toFixed(1)}M`
@@ -569,6 +864,32 @@ function pctCell(pct) {
   return `<td class="${cls}">${fmtPct(pct)}</td>`;
 }
 
+// ── Noise classifier ───────────────────────────────────────────────────────
+function noiseReasons(r) {
+  const reasons = [];
+  if (filters.warrants && /W$/i.test(r.symbol))     reasons.push('warrant');
+  if (filters.penny    && r.price != null && Number(r.price) < 1.00) reasons.push('penny');
+  if (filters.lowvol   && r.volume != null && Number(r.volume) < 1000) reasons.push('lowvol');
+  return reasons;
+}
+
+function isNoise(r) {
+  return noiseReasons(r).length > 0;
+}
+
+const reasonLabels = {
+  warrant: 'Warrant',
+  penny:   'Penny',
+  lowvol:  'Low Vol',
+};
+
+function reasonTagsHtml(reasons) {
+  return reasons.map(r =>
+    `<span class="noise-tag ${r}">${reasonLabels[r]}</span>`
+  ).join('');
+}
+
+// ── Row renderers ──────────────────────────────────────────────────────────
 function rowHtml(r) {
   return `<tr>
     <td class="sym">${r.symbol}</td>
@@ -596,10 +917,33 @@ function pmRowHtml(r) {
   </tr>`;
 }
 
+function noiseRowHtml(r) {
+  const reasons = noiseReasons(r);
+  return `<tr>
+    <td class="sym">${r.symbol}</td>
+    <td class="price">${fmt(r.price)}</td>
+    ${pctCell(r.change_pct)}
+    <td class="vol">${fmtVol(r.volume)}</td>
+    <td>${reasonTagsHtml(reasons)}</td>
+  </tr>`;
+}
+
+function noiseSpikeRowHtml(r) {
+  const reasons = noiseReasons(r);
+  return `<tr>
+    <td class="sym">${r.symbol}</td>
+    <td class="price">${fmt(r.price)}</td>
+    ${pctCell(r.change_pct)}
+    <td><span class="spike-badge">${Number(r.spike_ratio).toFixed(1)}×</span></td>
+    <td class="vol">${fmtVol(r.volume)}</td>
+    <td>${reasonTagsHtml(reasons)}</td>
+  </tr>`;
+}
+
 function setBody(id, rows, renderFn, emptyMsg) {
   const el = document.getElementById(id);
   if (!rows || rows.length === 0) {
-    el.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--muted)">${emptyMsg}</td></tr>`;
+    el.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--muted)">${emptyMsg}</td></tr>`;
   } else {
     el.innerHTML = rows.map(renderFn).join('');
   }
@@ -609,10 +953,10 @@ function setBody(id, rows, renderFn, emptyMsg) {
 function setSession(session) {
   const badge = document.getElementById('session-badge');
   const labels = {
-    premarket: 'PRE-MARKET',
-    regular: 'MARKET OPEN',
+    premarket:  'PRE-MARKET',
+    regular:    'MARKET OPEN',
     afterhours: 'AFTER-HOURS',
-    closed: 'MARKET CLOSED',
+    closed:     'MARKET CLOSED',
   };
   badge.textContent = labels[session] || 'CLOSED';
   badge.className = `session-badge session-${session || 'closed'}`;
@@ -621,13 +965,71 @@ function setSession(session) {
 
 // ── Ticker ─────────────────────────────────────────────────────────────────
 function buildTicker(gainers, losers) {
-  const all = [...gainers.slice(0,5), ...losers.slice(0,5)];
+  // Ticker shows only non-noise stocks from main tab
+  const cleanGainers = gainers.filter(r => !isNoise(r));
+  const cleanLosers  = losers.filter(r => !isNoise(r));
+  const all = [...cleanGainers.slice(0,5), ...cleanLosers.slice(0,5)];
   const items = all.map(r => {
     const cls = (r.change_pct || 0) >= 0 ? 'pct-up' : 'pct-down';
     return `<span class="ticker-item"><span class="ticker-sym">${r.symbol}</span><span class="ticker-pct ${cls}">${fmtPct(r.change_pct)}</span></span>`;
   }).join('');
-  // Duplicate for seamless loop
   document.getElementById('ticker').innerHTML = items + items;
+}
+
+// ── Raw data cache ─────────────────────────────────────────────────────────
+let _gainers = [], _losers = [], _spikes = [], _pm = [];
+
+// ── Apply filters to cached data ───────────────────────────────────────────
+function applyFilters() {
+  const cleanGainers = _gainers.filter(r => !isNoise(r));
+  const cleanLosers  = _losers.filter(r => !isNoise(r));
+  const cleanSpikes  = _spikes.filter(r => !isNoise(r));
+
+  const noiseGainers = _gainers.filter(r => isNoise(r));
+  const noiseLosers  = _losers.filter(r => isNoise(r));
+  const noiseSpikes  = _spikes.filter(r => isNoise(r));
+
+  // Sort noise by abs % change
+  const byAbsPct = (a, b) => Math.abs(b.change_pct||0) - Math.abs(a.change_pct||0);
+  noiseGainers.sort(byAbsPct);
+  noiseLosers.sort(byAbsPct);
+  noiseSpikes.sort(byAbsPct);
+
+  const noiseTotal = noiseGainers.length + noiseLosers.length + noiseSpikes.length;
+
+  // Update main tab counts
+  document.getElementById('gainers-count').textContent = `${cleanGainers.length} stocks`;
+  document.getElementById('losers-count').textContent  = `${cleanLosers.length} stocks`;
+  document.getElementById('spikes-count').textContent  = `${cleanSpikes.length} stocks`;
+
+  // Update noise tab counts
+  document.getElementById('noise-gainers-count').textContent = `${noiseGainers.length} stocks`;
+  document.getElementById('noise-losers-count').textContent  = `${noiseLosers.length} stocks`;
+  document.getElementById('noise-spikes-count').textContent  = `${noiseSpikes.length} stocks`;
+
+  // Noise count indicators
+  document.getElementById('noise-total').textContent    = noiseTotal;
+  document.getElementById('noise-tab-count').textContent = noiseTotal;
+
+  // Render main tables
+  setBody('gainers-body', cleanGainers, rowHtml,      'no data yet — check filters');
+  setBody('losers-body',  cleanLosers,  rowHtml,      'no data yet — check filters');
+  setBody('spikes-body',  cleanSpikes,  spikeRowHtml, 'no spikes detected');
+
+  // Render noise tables
+  setBody('noise-gainers-body', noiseGainers, noiseRowHtml,      'no filtered gainers');
+  setBody('noise-losers-body',  noiseLosers,  noiseRowHtml,      'no filtered losers');
+  setBody('noise-spikes-body',  noiseSpikes,  noiseSpikeRowHtml, 'no filtered spikes');
+
+  // Pre-market — filtered same as main tables
+  const cleanPm = _pm.filter(r => !isNoise(r));
+  document.getElementById('pm-count').textContent = `${cleanPm.length} stocks`;
+  const pmTop = cleanPm.filter(r => (r.change_pct||0) >= 0).slice(0,10);
+  const pmBot = cleanPm.filter(r => (r.change_pct||0) < 0).slice(0,10);
+  setBody('pm-top-body', pmTop, pmRowHtml, 'no pre-market data');
+  setBody('pm-bot-body', pmBot, pmRowHtml, 'no pre-market data');
+
+  buildTicker(_gainers, _losers);
 }
 
 // ── Fetch all data ─────────────────────────────────────────────────────────
@@ -640,6 +1042,12 @@ async function fetchAll() {
       fetch('/api/spikes').then(r=>r.json()),
       fetch('/api/premarket').then(r=>r.json()),
     ]);
+
+    // Cache raw data
+    _gainers = gainers;
+    _losers  = losers;
+    _spikes  = spikes;
+    _pm      = pm;
 
     // Summary cards
     document.getElementById('stat-total').textContent   = (summary.total_symbols || 0).toLocaleString();
@@ -657,22 +1065,8 @@ async function fetchAll() {
     }
     setSession(summary.session);
 
-    // Tables
-    document.getElementById('gainers-count').textContent = `${gainers.length} stocks`;
-    document.getElementById('losers-count').textContent  = `${losers.length} stocks`;
-    document.getElementById('spikes-count').textContent  = `${spikes.length} stocks`;
-    document.getElementById('pm-count').textContent      = `${pm.length} stocks`;
-
-    setBody('gainers-body', gainers, rowHtml,      'no data yet');
-    setBody('losers-body',  losers,  rowHtml,      'no data yet');
-    setBody('spikes-body',  spikes,  spikeRowHtml, 'no spikes detected');
-
-    const pmTop = pm.filter(r => (r.change_pct||0) >= 0).slice(0,10);
-    const pmBot = pm.filter(r => (r.change_pct||0) < 0).slice(0,10);
-    setBody('pm-top-body', pmTop, pmRowHtml, 'no pre-market data');
-    setBody('pm-bot-body', pmBot, pmRowHtml, 'no pre-market data');
-
-    buildTicker(gainers, losers);
+    // Apply filters to all tables including pre-market
+    applyFilters();
 
   } catch(e) {
     console.error('Fetch error:', e);
@@ -681,7 +1075,7 @@ async function fetchAll() {
 
 // ── Init + auto-refresh ────────────────────────────────────────────────────
 fetchAll();
-setInterval(fetchAll, 60_000);   // refresh every 60 seconds
+setInterval(fetchAll, 60_000);
 </script>
 </body>
 </html>
