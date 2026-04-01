@@ -123,6 +123,7 @@ def gainers():
     """, (t,))
     con.close()
     rows = add_score(rows)
+    rows = [r for r in rows if (r.get("change_pct") or 0) > 0]
     rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:TOP_N])
 
