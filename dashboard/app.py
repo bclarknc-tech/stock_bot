@@ -1,13 +1,12 @@
 """
 Stock Bot Web Dashboard — Flask API
 Serves the dashboard HTML and exposes JSON endpoints
-that read from the same SQLite DB as the scanner.
+that read from the Postgres DB written to by scanner.py.
 """
 
 import os
 import psycopg2
 import psycopg2.extras
-import json
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, send_from_directory
@@ -15,7 +14,7 @@ from flask import Flask, jsonify, send_from_directory
 app = Flask(__name__, static_folder="static")
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-TOP_N   = int(os.getenv("TOP_N", 10))
+TOP_N = int(os.getenv("TOP_N", 10))
 VOLUME_SPIKE_MULTIPLIER = float(os.getenv("VOLUME_SPIKE_MULTIPLIER", 3.0))
 ET = ZoneInfo("America/New_York")
 
@@ -36,15 +35,39 @@ def today():
     return date.today().isoformat()
 
 
+def init_db():
+    con = get_db()
+    cur = con.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS snapshots (
+            id          SERIAL PRIMARY KEY,
+            ts          TIMESTAMPTZ NOT NULL,
+            session     TEXT NOT NULL,
+            symbol      TEXT NOT NULL,
+            price       REAL,
+            change_pct  REAL,
+            volume      BIGINT,
+            avg_volume  REAL
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ts  ON snapshots(ts)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_sym ON snapshots(symbol)")
+    con.commit()
+    cur.close()
+    con.close()
+
+
+init_db()
+
+
 # ── API routes ─────────────────────────────────────────────────────────────
 
 @app.route("/api/summary")
 def summary():
-    """High-level stats for the stat cards."""
     con = get_db()
     t = today()
-
     cur = con.cursor()
+
     cur.execute("SELECT COUNT(DISTINCT symbol) FROM snapshots WHERE ts::date=%s", (t,))
     total = cur.fetchone()[0]
 
@@ -139,7 +162,6 @@ def premarket():
 
 @app.route("/api/history/<symbol>")
 def history(symbol):
-    """Last 48 hours of price snapshots for a symbol (for sparkline)."""
     con = get_db()
     rows = query(con, """
         SELECT ts, price, change_pct, session
@@ -148,7 +170,6 @@ def history(symbol):
         ORDER BY ts ASC
     """, (symbol.upper(),))
     con.close()
-    # Convert datetime to isoformat for JSON
     for r in rows:
         if r.get("ts"):
             r["ts"] = r["ts"].isoformat()
@@ -163,5 +184,5 @@ def index():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5050))
+    port = int(os.getenv("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
