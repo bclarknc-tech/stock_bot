@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Market Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0e14;
+    --surface:  #111720;
+    --border:   #1e2a38;
+    --text:     #cdd6e0;
+    --muted:    #4a5a6e;
+    --green:    #2ecc87;
+    --red:      #e05252;
+    --blue:     #3b8eea;
+    --amber:    #e8a840;
+    --purple:   #9b72e8;
+    --orange:   #e8732a;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .session-badge {
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+
+  .session-badge.regular    { background: rgba(46,204,135,0.15); color: var(--green);  border: 1px solid rgba(46,204,135,0.3); }
+  .session-badge.premarket  { background: rgba(59,142,234,0.15); color: var(--blue);   border: 1px solid rgba(59,142,234,0.3); }
+  .session-badge.afterhours { background: rgba(232,115,42,0.15); color: var(--orange); border: 1px solid rgba(232,115,42,0.3); }
+  .session-badge.closed     { background: rgba(74,90,110,0.2);   color: var(--muted);  border: 1px solid var(--border); }
+
+  .email-btn {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--mono);
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: background 0.15s;
+  }
+  .email-btn:hover { background: #2a7dd8; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat.blue::before   { background: var(--blue); }
+  .stat.green::before  { background: var(--green); }
+  .stat.red::before    { background: var(--red); }
+  .stat.amber::before  { background: var(--amber); }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .stat.blue .stat-value  { color: var(--blue); }
+  .stat.green .stat-value { color: var(--green); }
+  .stat.red .stat-value   { color: var(--red); }
+  .stat.amber .stat-value { color: var(--amber); }
+
+  .stat-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .filters-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle-wrap input { display: none; }
+
+  .toggle {
+    width: 32px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s;
+  }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: var(--muted);
+    border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: left 0.2s, background 0.2s;
+  }
+
+  input:checked + .toggle { background: rgba(46,204,135,0.2); border: 1px solid rgba(46,204,135,0.4); }
+  input:checked + .toggle::after { left: 16px; background: var(--green); }
+
+  .toggle-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .filter-count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .panel-title.green  { color: var(--green); }
+  .panel-title.red    { color: var(--red); }
+  .panel-title.amber  { color: var(--amber); }
+  .panel-title.purple { color: var(--purple); }
+  .panel-title.orange { color: var(--orange); }
+
+  .panel-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--border);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 16px;
+    text-align: left;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  td {
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(30,42,56,0.5);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .sym-link {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .sym-link:hover { color: var(--blue); border-bottom-color: var(--blue); }
+
+  .up         { color: var(--green);  font-weight: 600; }
+  .down       { color: var(--red);    font-weight: 600; }
+  .muted-text { color: var(--muted); }
+
+  .spike-badge {
+    background: rgba(232,168,64,0.15);
+    color: var(--amber);
+    border: 1px solid rgba(232,168,64,0.3);
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .empty {
+    padding: 20px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .pm-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .pm-grid > div + div { border-left: 1px solid var(--border); }
+  .pm-label {
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .pm-label.up   { color: var(--green); }
+  .pm-label.down { color: var(--red); }
+
+  /* After-hours panel full width */
+  .panel-full { grid-column: 1 / -1; }
+
+  .ah-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .ah-grid > div + div { border-left: 1px solid var(--border); }
+  .ah-label {
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .ah-label.up   { color: var(--green); }
+  .ah-label.down { color: var(--red); }
+
+  footer {
+    text-align: center;
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+  }
+
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  @media (max-width: 800px) {
+    .stats  { grid-template-columns: 1fr 1fr; }
+    .grid   { grid-template-columns: 1fr; }
+    .pm-grid, .ah-grid { grid-template-columns: 1fr; }
+    .pm-grid > div + div, .ah-grid > div + div { border-left: none; border-top: 1px solid var(--border); }
+    header  { padding: 0 16px; }
+    .header-right .last-scan { display: none; }
+    .panel-full { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-dot"></span>
+    Market Scanner
+  </div>
+  <div class="header-right">
+    <span class="last-scan" id="last-scan">—</span>
+    <span class="session-badge closed" id="session-badge">Closed</span>
+    <a href="/send-report" class="email-btn">📧 Email Report</a>
+  </div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat blue">
+      <div class="stat-label">Symbols Scanned</div>
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-sub" id="stat-date">—</div>
+    </div>
+    <div class="stat green">
+      <div class="stat-label">Advancing</div>
+      <div class="stat-value" id="stat-gainers">—</div>
+      <div class="stat-sub" id="stat-gainers-pct">—</div>
+    </div>
+    <div class="stat red">
+      <div class="stat-label">Declining</div>
+      <div class="stat-value" id="stat-losers">—</div>
+      <div class="stat-sub" id="stat-losers-pct">—</div>
+    </div>
+    <div class="stat amber">
+      <div class="stat-label">Session</div>
+      <div class="stat-value" id="stat-session" style="font-size:18px;margin-top:4px">—</div>
+      <div class="stat-sub">refreshes every 60s</div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <span class="filters-label">Filters</span>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-warrants" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Warrants</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-penny" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Penny Stocks (&lt;$1)</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-lowvol" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Low Volume (&lt;50K)</span>
+    </label>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title green">▲ Top Gainers</span>
+        <span class="panel-count" id="cnt-gainers">—</span>
+      </div>
+      <div id="tbl-gainers"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title red">▼ Top Losers</span>
+        <span class="panel-count" id="cnt-losers">—</span>
+      </div>
+      <div id="tbl-losers"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title amber">⚡ Volume Spikes</span>
+        <span class="panel-count" id="cnt-spikes">—</span>
+      </div>
+      <div id="tbl-spikes"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title purple">🌅 Pre-Market Movers</span>
+        <span class="panel-count" id="cnt-pm">—</span>
+      </div>
+      <div class="pm-grid">
+        <div>
+          <div class="pm-label up">Gainers</div>
+          <div id="tbl-pm-top"><div class="empty">Loading…</div></div>
+        </div>
+        <div>
+          <div class="pm-label down">Losers</div>
+          <div id="tbl-pm-bot"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- After-Hours Panel — full width -->
+    <div class="panel panel-full">
+      <div class="panel-head">
+        <span class="panel-title orange">🌙 After-Hours Movers</span>
+        <span class="panel-count" id="cnt-ah">—</span>
+      </div>
+      <div class="ah-grid">
+        <div>
+          <div class="ah-label up">Gainers</div>
+          <div id="tbl-ah-top"><div class="empty">Loading…</div></div>
+        </div>
+        <div>
+          <div class="ah-label down">Losers</div>
+          <div id="tbl-ah-bot"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Market Scanner &middot; Data via Alpaca Markets &middot; Not financial advice
+</footer>
+
+<script>
+const WARRANT_RE = /W$|WS$|WT$|W[A-Z]$|WARR$/;
+let DATA = { gainers: [], losers: [], spikes: [], pm: [], ah: [] };
+
+function tv(sym) {
+  return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(sym)}`;
+}
+
+function fmtVol(n) {
+  if (!n && n !== 0) return '—';
+  n = Math.round(n);
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+  return String(n);
+}
+
+function fmtPct(p) {
+  if (p === null || p === undefined) return '—';
+  const sign = p >= 0 ? '+' : '';
+  return sign + p.toFixed(2) + '%';
+}
+
+function pctClass(p) { return p >= 0 ? 'up' : 'down'; }
+
+function isWarrant(sym) { return WARRANT_RE.test(sym); }
+function isPenny(price)  { return price !== null && price < 1.0; }
+function isLowVol(vol)   { return vol !== null && vol < 50000; }
+
+function applyFilters(rows) {
+  const hw = document.getElementById('f-warrants').checked;
+  const hp = document.getElementById('f-penny').checked;
+  const hv = document.getElementById('f-lowvol').checked;
+  return rows.filter(r => {
+    if (hw && isWarrant(r.symbol)) return false;
+    if (hp && isPenny(r.price))    return false;
+    if (hv && isLowVol(r.volume))  return false;
+    return true;
+  });
+}
+
+function baseRow(r) {
+  const price = r.price != null ? '$' + r.price.toFixed(2) : '—';
+  const pct   = fmtPct(r.change_pct);
+  const cls   = r.change_pct != null ? pctClass(r.change_pct) : 'muted-text';
+  return `<tr>
+    <td><a class="sym-link" href="${tv(r.symbol)}" target="_blank" rel="noopener">${r.symbol}</a></td>
+    <td>${price}</td>
+    <td class="${cls}">${pct}</td>
+    <td class="muted-text">${fmtVol(r.volume)}</td>
+  </tr>`;
+}
+
+function spikeRow(r) {
+  const price = r.price != null ? '$' + r.price.toFixed(2) : '—';
+  const pct   = fmtPct(r.change_pct);
+  const cls   = r.change_pct != null ? pctClass(r.change_pct) : 'muted-text';
+  const ratio = r.spike_ratio != null ? r.spike_ratio.toFixed(1) : '—';
+  return `<tr>
+    <td><a class="sym-link" href="${tv(r.symbol)}" target="_blank" rel="noopener">${r.symbol}</a></td>
+    <td>${price}</td>
+    <td class="${cls}">${pct}</td>
+    <td><span class="spike-badge">${ratio}×</span></td>
+    <td class="muted-text">${fmtVol(r.volume)}</td>
+  </tr>`;
+}
+
+function renderTable(elId, rows, rowFn, cols, countElId) {
+  const el = document.getElementById(elId);
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty">no data yet — check filters or wait for market open</div>';
+    if (countElId) document.getElementById(countElId).textContent = '0';
+    return;
+  }
+  const ths = cols.map(c => `<th>${c}</th>`).join('');
+  const trs = rows.map(rowFn).join('');
+  el.innerHTML = `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  if (countElId) document.getElementById(countElId).textContent = rows.length;
+}
+
+function render() {
+  const gainers = applyFilters(DATA.gainers).slice(0, 10);
+  const losers  = applyFilters(DATA.losers).slice(0, 10);
+  const spikes  = applyFilters(DATA.spikes).slice(0, 10);
+  const pmAll   = applyFilters(DATA.pm);
+  const pmTop   = pmAll.filter(r => r.change_pct >= 0).slice(0, 5);
+  const pmBot   = pmAll.filter(r => r.change_pct < 0).slice(0, 5);
+  const ahAll   = applyFilters(DATA.ah);
+  const ahTop   = ahAll.filter(r => r.change_pct >= 0).slice(0, 10);
+  const ahBot   = ahAll.filter(r => r.change_pct < 0).slice(0, 10);
+
+  renderTable('tbl-gainers', gainers, baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-gainers');
+  renderTable('tbl-losers',  losers,  baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-losers');
+  renderTable('tbl-spikes',  spikes,  spikeRow, ['Symbol','Price','Chg %','Spike','Volume'], 'cnt-spikes');
+  renderTable('tbl-pm-top',  pmTop,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
+  renderTable('tbl-pm-bot',  pmBot,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
+  renderTable('tbl-ah-top',  ahTop,   baseRow,  ['Symbol','Price','AH %','Volume'], null);
+  renderTable('tbl-ah-bot',  ahBot,   baseRow,  ['Symbol','Price','AH %','Volume'], null);
+
+  document.getElementById('cnt-pm').textContent = pmAll.length;
+  document.getElementById('cnt-ah').textContent = ahAll.length;
+
+  const total = gainers.length + losers.length;
+  document.getElementById('filter-count').textContent =
+    total ? `${total} stocks shown` : '';
+}
+
+async function fetchAll() {
+  try {
+    const [summary, gainers, losers, spikes, pm, ah] = await Promise.all([
+      fetch('/api/summary').then(r => r.json()),
+      fetch('/api/gainers').then(r => r.json()),
+      fetch('/api/losers').then(r => r.json()),
+      fetch('/api/spikes').then(r => r.json()),
+      fetch('/api/premarket').then(r => r.json()),
+      fetch('/api/afterhours').then(r => r.json()),
+    ]);
+
+    DATA = { gainers, losers, spikes, pm, ah };
+
+    document.getElementById('stat-total').textContent   = summary.total_symbols || 0;
+    document.getElementById('stat-date').textContent    = summary.date || '—';
+    document.getElementById('stat-gainers').textContent = summary.gainers || 0;
+    document.getElementById('stat-losers').textContent  = summary.losers || 0;
+
+    const total = summary.total_symbols || 1;
+    document.getElementById('stat-gainers-pct').textContent =
+      Math.round((summary.gainers / total) * 100) + '% of universe';
+    document.getElementById('stat-losers-pct').textContent =
+      Math.round((summary.losers / total) * 100) + '% of universe';
+
+    const session = summary.session || 'closed';
+    const labels = {
+      regular: 'Market Open', premarket: 'Pre-Market',
+      afterhours: 'After-Hours', closed: 'Market Closed'
+    };
+    const badge = document.getElementById('session-badge');
+    badge.textContent = labels[session] || 'Closed';
+    badge.className = 'session-badge ' + session;
+    document.getElementById('stat-session').textContent = labels[session] || 'Closed';
+
+    if (summary.last_scan) {
+      const d = new Date(summary.last_scan);
+      document.getElementById('last-scan').textContent =
+        'last scan: ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+    }
+
+    render();
+  } catch (e) {
+    console.error('Fetch error:', e);
+  }
+}
+
+document.querySelectorAll('.filters input').forEach(el =>
+  el.addEventListener('change', render)
+);
+
+fetchAll();
+setInterval(fetchAll, 60000);
+</script>
+</body>
+</html>
