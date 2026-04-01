@@ -3,3 +3,4 @@ python-dotenv
 schedule
 alpaca-trade-api
 pandas
+psycopg2-binary

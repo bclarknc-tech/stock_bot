@@ -6,7 +6,8 @@ Sends a daily 9am email report with top movers, losers, and volume spikes.
 
 import os
 import json
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import smtplib
 import logging
 from dotenv import load_dotenv
@@ -47,7 +48,7 @@ SMTP_USER     = os.environ["SMTP_USER"]          # your Gmail address
 SMTP_PASSWORD = os.environ["SMTP_PASSWORD"]      # Gmail app password
 REPORT_TO     = os.environ["REPORT_TO"]          # recipient email
 
-DB_PATH       = os.getenv("DB_PATH", "market_data.db")
+DATABASE_URL  = os.environ["DATABASE_URL"]        # Postgres connection string
 
 # Volume spike threshold: flag if volume > N × 30-day average
 VOLUME_SPIKE_MULTIPLIER = float(os.getenv("VOLUME_SPIKE_MULTIPLIER", 3.0))
@@ -60,39 +61,46 @@ data_client = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url=ALPACA_B
 
 
 # ── Database ───────────────────────────────────────────────────────────────
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
+
+
 def init_db():
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
     cur = con.cursor()
-    cur.executescript("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS snapshots (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            ts          TEXT NOT NULL,
-            session     TEXT NOT NULL,   -- premarket | regular | afterhours
+            id          SERIAL PRIMARY KEY,
+            ts          TIMESTAMPTZ NOT NULL,
+            session     TEXT NOT NULL,
             symbol      TEXT NOT NULL,
             price       REAL,
             change_pct  REAL,
-            volume      INTEGER,
+            volume      BIGINT,
             avg_volume  REAL
-        );
-        CREATE INDEX IF NOT EXISTS idx_ts   ON snapshots(ts);
-        CREATE INDEX IF NOT EXISTS idx_sym  ON snapshots(symbol);
+        )
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ts  ON snapshots(ts)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_sym ON snapshots(symbol)")
     con.commit()
+    cur.close()
     con.close()
-    log.info("Database ready: %s", DB_PATH)
+    log.info("Postgres database ready")
 
 
 def save_snapshots(rows: list[dict], session: str):
     if not rows:
         return
     ts = datetime.now(ET).isoformat()
-    con = sqlite3.connect(DB_PATH)
-    con.executemany(
+    con = get_conn()
+    cur = con.cursor()
+    psycopg2.extras.execute_batch(cur,
         "INSERT INTO snapshots (ts, session, symbol, price, change_pct, volume, avg_volume) "
-        "VALUES (:ts, :session, :symbol, :price, :change_pct, :volume, :avg_volume)",
+        "VALUES (%(ts)s, %(session)s, %(symbol)s, %(price)s, %(change_pct)s, %(volume)s, %(avg_volume)s)",
         [{**r, "ts": ts, "session": session} for r in rows],
     )
     con.commit()
+    cur.close()
     con.close()
 
 
@@ -158,11 +166,14 @@ def fetch_snapshots(symbols: list[str]) -> pd.DataFrame:
 
 def get_avg_volume(symbol: str) -> float | None:
     """Pull 30-day average volume from DB snapshots."""
-    con = sqlite3.connect(DB_PATH)
-    row = con.execute(
-        "SELECT AVG(volume) FROM snapshots WHERE symbol=? AND ts >= date('now','-30 days')",
+    con = get_conn()
+    cur = con.cursor()
+    cur.execute(
+        "SELECT AVG(volume) FROM snapshots WHERE symbol=%s AND ts >= NOW() - INTERVAL '30 days'",
         (symbol,),
-    ).fetchone()
+    )
+    row = cur.fetchone()
+    cur.close()
     con.close()
     return row[0] if row and row[0] else None
 
@@ -246,7 +257,7 @@ def build_report() -> dict:
     - pre-market movers summary
     """
     today = date.today().isoformat()
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
 
     def query(sql, params=()):
         return pd.read_sql_query(sql, con, params=params)
@@ -255,7 +266,7 @@ def build_report() -> dict:
     latest = query("""
         SELECT symbol, price, change_pct, volume, avg_volume, session
         FROM snapshots
-        WHERE date(ts) = ?
+        WHERE ts::date = %s
         ORDER BY ts DESC
     """, (today,))
 
@@ -573,17 +584,12 @@ function applyFilters(rows) {{
   }});
 }}
 
-function tvLink(sym) {{
-  const url = `https://www.tradingview.com/chart/?symbol=${{encodeURIComponent(sym)}}`;
-  return `<a href="${{url}}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed #94a3b8;" onmouseover="this.style.borderBottomColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderBottomColor='#94a3b8';this.style.color='inherit'">${{sym}}</a>`;
-}}
-
 function baseRow(r) {{
   const pct = r.change_pct;
   const color = (pct >= 0) ? '#16a34a' : '#dc2626';
   const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
   const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
-  return `<tr><td class="sym">${{tvLink(r.symbol)}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
 }}
 
 function spikeRow(r) {{
@@ -592,7 +598,7 @@ function spikeRow(r) {{
   const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
   const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
   const ratio = (r.spike_ratio || 0).toFixed(1);
-  return `<tr><td class="sym">${{tvLink(r.symbol)}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td><span class="badge">${{ratio}}×</span></td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td><span class="badge">${{ratio}}×</span></td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
 }}
 
 function renderTable(elId, rows, rowFn, cols, countElId) {{
