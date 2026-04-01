@@ -573,12 +573,17 @@ function applyFilters(rows) {{
   }});
 }}
 
+function tvLink(sym) {{
+  const url = `https://www.tradingview.com/chart/?symbol=${{encodeURIComponent(sym)}}`;
+  return `<a href="${{url}}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed #94a3b8;" onmouseover="this.style.borderBottomColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderBottomColor='#94a3b8';this.style.color='inherit'">${{sym}}</a>`;
+}}
+
 function baseRow(r) {{
   const pct = r.change_pct;
   const color = (pct >= 0) ? '#16a34a' : '#dc2626';
   const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
   const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
-  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+  return `<tr><td class="sym">${{tvLink(r.symbol)}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
 }}
 
 function spikeRow(r) {{
@@ -587,7 +592,7 @@ function spikeRow(r) {{
   const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
   const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
   const ratio = (r.spike_ratio || 0).toFixed(1);
-  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td><span class="badge">${{ratio}}×</span></td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+  return `<tr><td class="sym">${{tvLink(r.symbol)}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td><span class="badge">${{ratio}}×</span></td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
 }}
 
 function renderTable(elId, rows, rowFn, cols, countElId) {{
