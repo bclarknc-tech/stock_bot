@@ -160,6 +160,21 @@ def premarket():
     return jsonify(rows[:20])
 
 
+@app.route("/api/afterhours")
+def afterhours():
+    con = get_db()
+    t = today()
+    rows = query(con, """
+        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume
+        FROM snapshots
+        WHERE ts::date=%s AND session='afterhours' AND change_pct IS NOT NULL
+        ORDER BY symbol, ts DESC
+    """, (t,))
+    con.close()
+    rows.sort(key=lambda r: abs(r["change_pct"] or 0), reverse=True)
+    return jsonify(rows[:20])
+
+
 @app.route("/api/history/<symbol>")
 def history(symbol):
     con = get_db()
