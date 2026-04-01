@@ -9,6 +9,8 @@ import json
 import sqlite3
 import smtplib
 import logging
+from dotenv import load_dotenv
+load_dotenv()
 import schedule
 import time
 import threading
@@ -180,28 +182,58 @@ def current_session() -> str | None:
 
 # ── Scan job ───────────────────────────────────────────────────────────────
 _symbols_cache: list[str] = []
+_scan_count: int = 0
+_last_scan_success: datetime | None = None
 
 
 def scan():
-    global _symbols_cache
+    global _symbols_cache, _scan_count, _last_scan_success
+    _scan_count += 1
     session = current_session()
+
+    log.info("Scan #%d triggered — session: %s — ET time: %s",
+             _scan_count, session or "CLOSED", datetime.now(ET).strftime("%H:%M:%S"))
+
     if session is None:
-        log.debug("Outside trading hours, skipping scan.")
+        log.info("Scan #%d skipped — outside trading hours (pre-market 04:00, regular 09:30, after-hours 16:00–20:00 ET).", _scan_count)
         return
 
-    log.info("Starting scan — session: %s", session)
-
+    # Load symbol universe, retry up to 3 times if it fails
     if not _symbols_cache:
-        _symbols_cache = get_all_assets()
+        for attempt in range(1, 4):
+            try:
+                log.info("Fetching asset universe (attempt %d/3)…", attempt)
+                _symbols_cache = get_all_assets()
+                log.info("Asset universe loaded: %d symbols", len(_symbols_cache))
+                break
+            except Exception as e:
+                log.error("get_all_assets() attempt %d failed: %s", attempt, e)
+                time.sleep(5)
+        if not _symbols_cache:
+            log.error("Scan #%d aborted — could not load asset universe after 3 attempts.", _scan_count)
+            return
 
-    df = fetch_snapshots(_symbols_cache)
+    try:
+        df = fetch_snapshots(_symbols_cache)
+    except Exception as e:
+        log.error("Scan #%d — fetch_snapshots() raised an exception: %s", _scan_count, e)
+        return
+
     if df.empty:
-        log.warning("No data returned.")
+        log.warning("Scan #%d — fetch_snapshots() returned empty DataFrame. No data written.", _scan_count)
         return
 
     rows = df.dropna(subset=["price"]).to_dict("records")
-    save_snapshots(rows, session)
-    log.info("Saved %d snapshots (session=%s)", len(rows), session)
+    if not rows:
+        log.warning("Scan #%d — all rows dropped (no valid price). Nothing saved.", _scan_count)
+        return
+
+    try:
+        save_snapshots(rows, session)
+        _last_scan_success = datetime.now(ET)
+        log.info("Scan #%d SUCCESS — saved %d snapshots (session=%s)", _scan_count, len(rows), session)
+    except Exception as e:
+        log.error("Scan #%d — save_snapshots() failed: %s", _scan_count, e)
 
 
 # ── Report builder ─────────────────────────────────────────────────────────
@@ -522,6 +554,18 @@ def web_report():
     return Response(html, mimetype="text/html")
 
 
+@flask_app.route("/health")
+def health():
+    last_ok = _last_scan_success.isoformat() if _last_scan_success else "never"
+    stale = _last_scan_success is None or (datetime.now(ET) - _last_scan_success).seconds > 600
+    status = 503 if stale else 200
+    return Response(
+        f"scans_run={_scan_count} last_success={last_ok} session={current_session() or 'closed'} stale={stale}",
+        status=status,
+        mimetype="text/plain"
+    )
+
+
 @flask_app.route("/send-report")
 def trigger_report():
     try:
@@ -534,14 +578,36 @@ def trigger_report():
 # ── Scheduler + main ───────────────────────────────────────────────────────
 def run_scheduler():
     init_db()
-    log.info("Stock bot starting…")
+    log.info("Stock bot starting — PID %d — %s", os.getpid(), datetime.now(ET).isoformat())
+
     schedule.every(5).minutes.do(scan)
-    schedule.every().day.at("09:00").do(send_daily_report)
-    log.info("Scheduler running. Scans every 5 min; report at 09:00 ET daily.")
-    scan()
+
+    # 09:00 ET varies in UTC due to DST — use an ET-aware wrapper instead
+    def send_report_if_et_9am():
+        now = datetime.now(ET)
+        if now.hour == 9 and now.minute < 5:
+            send_daily_report()
+
+    schedule.every(5).minutes.do(send_report_if_et_9am)
+
+    log.info("Scheduler armed. Scans every 5 min; report fires at 09:00 ET.")
+    scan()  # Run immediately on startup so we know it works
+
+    consecutive_errors = 0
     while True:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+            consecutive_errors = 0
+        except Exception as e:
+            consecutive_errors += 1
+            log.error("Scheduler loop error #%d: %s", consecutive_errors, e)
+            if consecutive_errors >= 10:
+                log.critical("10 consecutive scheduler errors — restarting scheduler loop.")
+                consecutive_errors = 0
         time.sleep(30)
+        log.debug("Scheduler heartbeat — %s — next scan: %s",
+                  datetime.now(ET).strftime("%H:%M:%S"),
+                  schedule.next_run())
 
 
 def main():
