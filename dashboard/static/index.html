@@ -553,15 +553,25 @@ function applyFilters(rows) {
   });
 }
 
+function scoreColor(s) {
+  if (s >= 500) return '#2ecc87';
+  if (s >= 100) return '#e8a840';
+  if (s >= 20)  return '#3b8eea';
+  return '#4a5a6e';
+}
+
 function baseRow(r) {
   const price = r.price != null ? '$' + r.price.toFixed(2) : '—';
   const pct   = fmtPct(r.change_pct);
   const cls   = r.change_pct != null ? pctClass(r.change_pct) : 'muted-text';
+  const score = r.score != null ? r.score.toFixed(0) : '—';
+  const sc    = r.score != null ? scoreColor(r.score) : '#4a5a6e';
   return `<tr>
     <td><a class="sym-link" href="${tv(r.symbol)}" target="_blank" rel="noopener">${r.symbol}</a></td>
     <td>${price}</td>
     <td class="${cls}">${pct}</td>
     <td class="muted-text">${fmtVol(r.volume)}</td>
+    <td style="font-weight:600;color:${sc};font-family:var(--mono)">${score}</td>
   </tr>`;
 }
 
@@ -603,12 +613,12 @@ function render() {
   const ahTop   = ahAll.filter(r => r.change_pct >= 0).slice(0, 10);
   const ahBot   = ahAll.filter(r => r.change_pct < 0).slice(0, 10);
 
-  renderTable('tbl-gainers', gainers, baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-gainers');
-  renderTable('tbl-losers',  losers,  baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-losers');
+  renderTable('tbl-gainers', gainers, baseRow,  ['Symbol','Price','Chg %','Volume','Score'], 'cnt-gainers');
+  renderTable('tbl-losers',  losers,  baseRow,  ['Symbol','Price','Chg %','Volume','Score'], 'cnt-losers');
   renderTable('tbl-spikes',  spikes,  spikeRow, ['Symbol','Price','Chg %','Spike','Volume'], 'cnt-spikes');
-  renderTable('tbl-pm-top',  pmTop,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
-  renderTable('tbl-pm-bot',  pmBot,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
-  renderTable('tbl-ah-top',  ahTop,   baseRow,  ['Symbol','Price','AH %','Volume'], null);
+  renderTable('tbl-pm-top',  pmTop,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume','Score'], null);
+  renderTable('tbl-pm-bot',  pmBot,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume','Score'], null);
+  renderTable('tbl-ah-top',  ahTop,   baseRow,  ['Symbol','Price','AH %','Volume','Score'], null);
   renderTable('tbl-ah-bot',  ahBot,   baseRow,  ['Symbol','Price','AH %','Volume'], null);
 
   document.getElementById('cnt-pm').textContent = pmAll.length;
