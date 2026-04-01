@@ -275,6 +275,27 @@
     border-radius: 10px;
   }
 
+  .panel-head {
+    cursor: pointer;
+    user-select: none;
+  }
+  .panel-head:hover { background: rgba(255,255,255,0.03); }
+
+  .panel-chevron {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.2s;
+    margin-left: 8px;
+  }
+  .panel.expanded .panel-chevron { transform: rotate(180deg); }
+
+  .panel-body {
+    overflow: hidden;
+    max-height: 400px;
+    transition: max-height 0.3s ease;
+  }
+  .panel.expanded .panel-body { max-height: 9999px; }
+
   table { width: 100%; border-collapse: collapse; }
 
   th {
@@ -440,7 +461,7 @@
       <span class="toggle-label">Hide Penny Stocks (&lt;$1)</span>
     </label>
     <label class="toggle-wrap">
-      <input type="checkbox" id="f-lowvol" checked>
+      <input type="checkbox" id="f-lowvol">
       <span class="toggle"></span>
       <span class="toggle-label">Hide Low Volume (&lt;50K)</span>
     </label>
@@ -450,33 +471,34 @@
   <div class="grid">
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title green">▲ Top Gainers</span>
+        <span class="panel-title green">▲ Top Gainers</span><span class="panel-chevron">▼</span>
         <span class="panel-count" id="cnt-gainers">—</span>
       </div>
-      <div id="tbl-gainers"><div class="empty">Loading…</div></div>
+      <div class="panel-body"><div id="tbl-gainers"><div class="empty">Loading…</div></div></div>
     </div>
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title red">▼ Top Losers</span>
+        <span class="panel-title red">▼ Top Losers</span><span class="panel-chevron">▼</span>
         <span class="panel-count" id="cnt-losers">—</span>
       </div>
-      <div id="tbl-losers"><div class="empty">Loading…</div></div>
+      <div class="panel-body"><div id="tbl-losers"><div class="empty">Loading…</div></div></div>
     </div>
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title amber">⚡ Volume Spikes</span>
+        <span class="panel-title amber">⚡ Volume Spikes</span><span class="panel-chevron">▼</span>
         <span class="panel-count" id="cnt-spikes">—</span>
       </div>
-      <div id="tbl-spikes"><div class="empty">Loading…</div></div>
+      <div class="panel-body"><div id="tbl-spikes"><div class="empty">Loading…</div></div></div>
     </div>
 
     <div class="panel">
       <div class="panel-head">
-        <span class="panel-title purple">🌅 Pre-Market Movers</span>
+        <span class="panel-title purple">🌅 Pre-Market Movers</span><span class="panel-chevron">▼</span>
         <span class="panel-count" id="cnt-pm">—</span>
       </div>
+      <div class="panel-body">
       <div class="pm-grid">
         <div>
           <div class="pm-label up">Gainers</div>
@@ -487,14 +509,16 @@
           <div id="tbl-pm-bot"><div class="empty">Loading…</div></div>
         </div>
       </div>
+      </div>
     </div>
 
     <!-- After-Hours Panel — full width -->
     <div class="panel panel-full">
       <div class="panel-head">
-        <span class="panel-title orange">🌙 After-Hours Movers</span>
+        <span class="panel-title orange">🌙 After-Hours Movers</span><span class="panel-chevron">▼</span>
         <span class="panel-count" id="cnt-ah">—</span>
       </div>
+      <div class="panel-body">
       <div class="ah-grid">
         <div>
           <div class="ah-label up">Gainers</div>
@@ -504,6 +528,7 @@
           <div class="ah-label down">Losers</div>
           <div id="tbl-ah-bot"><div class="empty">Loading…</div></div>
         </div>
+      </div>
       </div>
     </div>
   </div>
@@ -602,16 +627,23 @@ function renderTable(elId, rows, rowFn, cols, countElId) {
   if (countElId) document.getElementById(countElId).textContent = rows.length;
 }
 
+function getLimit(elId) {
+  const panel = document.getElementById(elId)?.closest('.panel');
+  return panel && panel.classList.contains('expanded') ? 9999 : 25;
+}
+
 function render() {
-  const gainers = applyFilters(DATA.gainers).slice(0, 10);
-  const losers  = applyFilters(DATA.losers).slice(0, 10);
-  const spikes  = applyFilters(DATA.spikes).slice(0, 10);
+  const gainers = applyFilters(DATA.gainers).slice(0, getLimit('tbl-gainers'));
+  const losers  = applyFilters(DATA.losers).slice(0, getLimit('tbl-losers'));
+  const spikes  = applyFilters(DATA.spikes).slice(0, getLimit('tbl-spikes'));
   const pmAll   = applyFilters(DATA.pm);
-  const pmTop   = pmAll.filter(r => r.change_pct >= 0).slice(0, 5);
-  const pmBot   = pmAll.filter(r => r.change_pct < 0).slice(0, 5);
+  const pmLimit = getLimit('tbl-pm-top');
+  const pmTop   = pmAll.filter(r => r.change_pct >= 0).slice(0, pmLimit);
+  const pmBot   = pmAll.filter(r => r.change_pct < 0).slice(0, pmLimit);
   const ahAll   = applyFilters(DATA.ah);
-  const ahTop   = ahAll.filter(r => r.change_pct >= 0).slice(0, 10);
-  const ahBot   = ahAll.filter(r => r.change_pct < 0).slice(0, 10);
+  const ahLimit = getLimit('tbl-ah-top');
+  const ahTop   = ahAll.filter(r => r.change_pct >= 0).slice(0, ahLimit);
+  const ahBot   = ahAll.filter(r => r.change_pct < 0).slice(0, ahLimit);
 
   renderTable('tbl-gainers', gainers, baseRow,  ['Symbol','Price','Chg %','Volume','Score'], 'cnt-gainers');
   renderTable('tbl-losers',  losers,  baseRow,  ['Symbol','Price','Chg %','Volume','Score'], 'cnt-losers');
@@ -678,6 +710,14 @@ async function fetchAll() {
 document.querySelectorAll('.filters input').forEach(el =>
   el.addEventListener('change', render)
 );
+
+// Accordion — re-render on toggle to show all rows
+document.querySelectorAll('.panel-head').forEach(head => {
+  head.addEventListener('click', () => {
+    head.closest('.panel').classList.toggle('expanded');
+    render();
+  });
+});
 
 fetchAll();
 setInterval(fetchAll, 60000);
