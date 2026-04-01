@@ -426,44 +426,8 @@ def web_report():
     }
     sc, sbg, slabel = session_colors.get(session, session_colors["closed"])
 
-    def fmt_vol(n):
-        if not n: return "—"
-        n = int(n)
-        if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
-        if n >= 1_000: return f"{n/1_000:.0f}K"
-        return str(n)
-
-    def base_row(r):
-        pct = r.get("change_pct")
-        color = "#16a34a" if (pct or 0) >= 0 else "#dc2626"
-        p = f"{pct:+.2f}%" if pct is not None else "—"
-        price = f"${r['price']:.2f}" if r.get("price") else "—"
-        return f"<tr><td class='sym'>{r['symbol']}</td><td>{price}</td><td style='color:{color};font-weight:600'>{p}</td><td class='muted'>{fmt_vol(r.get('volume'))}</td></tr>"
-
-    def spike_row(r):
-        pct = r.get("change_pct")
-        color = "#16a34a" if (pct or 0) >= 0 else "#dc2626"
-        p = f"{pct:+.2f}%" if pct is not None else "—"
-        price = f"${r['price']:.2f}" if r.get("price") else "—"
-        ratio = r.get("spike_ratio", 0)
-        return f"<tr><td class='sym'>{r['symbol']}</td><td>{price}</td><td style='color:{color};font-weight:600'>{p}</td><td><span class='badge'>{ratio:.1f}×</span></td><td class='muted'>{fmt_vol(r.get('volume'))}</td></tr>"
-
-    def tbl(rows, cols, render_fn):
-        if not rows:
-            return "<p style='color:#6b7280;padding:12px'>No data yet — check back after market opens.</p>"
-        ths = "".join(f"<th>{c}</th>" for c in cols)
-        trs = "".join(render_fn(r) for r in rows)
-        return f"<table><thead><tr>{ths}</tr></thead><tbody>{trs}</tbody></table>"
-
-    g_tbl  = tbl(report.get("gainers",[]), ["Symbol","Price","Chg %","Volume"], base_row)
-    l_tbl  = tbl(report.get("losers", []), ["Symbol","Price","Chg %","Volume"], base_row)
-    s_tbl  = tbl(report.get("spikes", []), ["Symbol","Price","Chg %","Spike","Volume"], spike_row)
-    pm_top = tbl(report.get("pm_top",[]), ["Symbol","Price","Pre-Mkt %","Volume"], base_row)
-    pm_bot = tbl(report.get("pm_bot",[]), ["Symbol","Price","Pre-Mkt %","Volume"], base_row)
-
-    top_gainer = report["gainers"][0]["symbol"] if report.get("gainers") else "—"
-    top_loser  = report["losers"][0]["symbol"]  if report.get("losers")  else "—"
-    n_spikes   = len(report.get("spikes", []))
+    # Embed all data as JSON — filtering is done client-side
+    report_json = json.dumps(report)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -479,6 +443,15 @@ def web_report():
   .meta{{font-size:12px;color:#94a3b8;margin-top:2px}}
   .badge-session{{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:{sbg};color:{sc}}}
   main{{max-width:1200px;margin:0 auto;padding:24px 20px}}
+  .filters{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}}
+  .filters-label{{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-right:4px}}
+  .toggle-wrap{{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}}
+  .toggle-wrap input[type=checkbox]{{display:none}}
+  .toggle{{width:36px;height:20px;background:#cbd5e1;border-radius:10px;position:relative;transition:background 0.2s}}
+  .toggle::after{{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}}
+  input:checked+.toggle{{background:#2563eb}}
+  input:checked+.toggle::after{{left:18px}}
+  .toggle-label{{font-size:12px;color:#475569;font-weight:500}}
   .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}}
   .stat{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;border-top:3px solid #e2e8f0}}
   .stat.green{{border-top-color:#16a34a}}.stat.red{{border-top-color:#dc2626}}.stat.blue{{border-top-color:#2563eb}}.stat.amber{{border-top-color:#d97706}}
@@ -490,6 +463,7 @@ def web_report():
   .panel-head{{padding:12px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between}}
   .panel-title{{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em}}
   .panel-title.green{{color:#16a34a}}.panel-title.red{{color:#dc2626}}.panel-title.amber{{color:#d97706}}.panel-title.purple{{color:#7c3aed}}
+  .panel-count{{font-size:11px;color:#94a3b8}}
   table{{width:100%;border-collapse:collapse}}
   th{{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;padding:8px 14px;text-align:left;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-weight:500}}
   td{{padding:8px 14px;border-bottom:1px solid #f8fafc}}
@@ -498,6 +472,7 @@ def web_report():
   .sym{{font-weight:600;font-size:13px}}
   .muted{{color:#94a3b8;font-size:12px}}
   .badge{{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;border:1px solid #fde68a}}
+  .empty{{color:#94a3b8;padding:16px 14px;font-size:13px}}
   .pm-grid{{display:grid;grid-template-columns:1fr 1fr}}
   .pm-grid>div+div{{border-left:1px solid #f1f5f9}}
   .pm-label{{padding:8px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #f1f5f9}}
@@ -519,36 +494,139 @@ def web_report():
   </div>
 </header>
 <main>
+  <!-- Filter bar -->
+  <div class="filters">
+    <span class="filters-label">Filters:</span>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-warrants" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Warrants</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-penny" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Penny Stocks (&lt;$1)</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="f-lowvol" checked>
+      <span class="toggle"></span>
+      <span class="toggle-label">Hide Low Volume (&lt;50K)</span>
+    </label>
+  </div>
+
   <div class="stats">
     <div class="stat blue"><div class="stat-label">Today's Date</div><div class="stat-value blue" style="font-size:16px">{date.today().strftime("%b %d")}</div></div>
-    <div class="stat green"><div class="stat-label">Top Gainer</div><div class="stat-value green">{top_gainer}</div></div>
-    <div class="stat red"><div class="stat-label">Top Loser</div><div class="stat-value red">{top_loser}</div></div>
-    <div class="stat amber"><div class="stat-label">Volume Spikes</div><div class="stat-value amber">{n_spikes}</div></div>
+    <div class="stat green"><div class="stat-label">Top Gainer</div><div class="stat-value green" id="stat-gainer">—</div></div>
+    <div class="stat red"><div class="stat-label">Top Loser</div><div class="stat-value red" id="stat-loser">—</div></div>
+    <div class="stat amber"><div class="stat-label">Volume Spikes</div><div class="stat-value amber" id="stat-spikes">—</div></div>
   </div>
+
   <div class="grid">
     <div class="panel">
-      <div class="panel-head"><span class="panel-title green">▲ Top Gainers</span></div>
-      {g_tbl}
+      <div class="panel-head"><span class="panel-title green">▲ Top Gainers</span><span class="panel-count" id="cnt-gainers"></span></div>
+      <div id="tbl-gainers"></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title red">▼ Top Losers</span></div>
-      {l_tbl}
+      <div class="panel-head"><span class="panel-title red">▼ Top Losers</span><span class="panel-count" id="cnt-losers"></span></div>
+      <div id="tbl-losers"></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><span class="panel-title amber">⚡ Volume Spikes</span></div>
-      {s_tbl}
+      <div class="panel-head"><span class="panel-title amber">⚡ Volume Spikes</span><span class="panel-count" id="cnt-spikes"></span></div>
+      <div id="tbl-spikes"></div>
     </div>
     <div class="panel">
       <div class="panel-head"><span class="panel-title purple">🌅 Pre-Market Movers</span></div>
       <div class="pm-grid">
-        <div><div class="pm-label" style="color:#16a34a">Gainers</div>{pm_top}</div>
-        <div><div class="pm-label" style="color:#dc2626">Losers</div>{pm_bot}</div>
+        <div><div class="pm-label" style="color:#16a34a">Gainers</div><div id="tbl-pm-top"></div></div>
+        <div><div class="pm-label" style="color:#dc2626">Losers</div><div id="tbl-pm-bot"></div></div>
       </div>
     </div>
   </div>
 </main>
 <footer>Market Scanner · Data via Alpaca Markets · Auto-reloads every 60s · Not financial advice</footer>
-<script>setTimeout(()=>location.reload(), 60000)</script>
+
+<script>
+const REPORT = {report_json};
+const WARRANT_RE = /W$|WS$|WT$|W[A-Z]$|WARR$/;
+
+function fmtVol(n) {{
+  if (!n) return '—';
+  n = Math.round(n);
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return String(n);
+}}
+
+function isWarrant(sym) {{ return WARRANT_RE.test(sym); }}
+function isPenny(price) {{ return price !== null && price < 1.0; }}
+function isLowVol(vol) {{ return vol !== null && vol < 50000; }}
+
+function applyFilters(rows) {{
+  const hideWarrants = document.getElementById('f-warrants').checked;
+  const hidePenny    = document.getElementById('f-penny').checked;
+  const hideLowVol   = document.getElementById('f-lowvol').checked;
+  return rows.filter(r => {{
+    if (hideWarrants && isWarrant(r.symbol)) return false;
+    if (hidePenny    && isPenny(r.price))    return false;
+    if (hideLowVol   && isLowVol(r.volume))  return false;
+    return true;
+  }});
+}}
+
+function baseRow(r) {{
+  const pct = r.change_pct;
+  const color = (pct >= 0) ? '#16a34a' : '#dc2626';
+  const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
+  const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
+  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+}}
+
+function spikeRow(r) {{
+  const pct = r.change_pct;
+  const color = (pct >= 0) ? '#16a34a' : '#dc2626';
+  const p = pct !== null ? (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%' : '—';
+  const price = r.price !== null ? '$' + r.price.toFixed(2) : '—';
+  const ratio = (r.spike_ratio || 0).toFixed(1);
+  return `<tr><td class="sym">${{r.symbol}}</td><td>${{price}}</td><td style="color:${{color}};font-weight:600">${{p}}</td><td><span class="badge">${{ratio}}×</span></td><td class="muted">${{fmtVol(r.volume)}}</td></tr>`;
+}}
+
+function renderTable(elId, rows, rowFn, cols, countElId) {{
+  const el = document.getElementById(elId);
+  if (!rows || rows.length === 0) {{
+    el.innerHTML = '<div class="empty">No data after filters applied.</div>';
+    if (countElId) document.getElementById(countElId).textContent = '(0)';
+    return;
+  }}
+  const ths = cols.map(c => `<th>${{c}}</th>`).join('');
+  const trs = rows.map(rowFn).join('');
+  el.innerHTML = `<table><thead><tr>${{ths}}</tr></thead><tbody>${{trs}}</tbody></table>`;
+  if (countElId) document.getElementById(countElId).textContent = `(${{rows.length}})`;
+}}
+
+function render() {{
+  const gainers = applyFilters(REPORT.gainers || []).slice(0, {TOP_N});
+  const losers  = applyFilters(REPORT.losers  || []).slice(0, {TOP_N});
+  const spikes  = applyFilters(REPORT.spikes  || []).slice(0, {TOP_N});
+  const pmTop   = applyFilters(REPORT.pm_top  || []).slice(0, 5);
+  const pmBot   = applyFilters(REPORT.pm_bot  || []).slice(0, 5);
+
+  renderTable('tbl-gainers', gainers, baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-gainers');
+  renderTable('tbl-losers',  losers,  baseRow,  ['Symbol','Price','Chg %','Volume'], 'cnt-losers');
+  renderTable('tbl-spikes',  spikes,  spikeRow, ['Symbol','Price','Chg %','Spike','Volume'], 'cnt-spikes');
+  renderTable('tbl-pm-top',  pmTop,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
+  renderTable('tbl-pm-bot',  pmBot,   baseRow,  ['Symbol','Price','Pre-Mkt %','Volume'], null);
+
+  document.getElementById('stat-gainer').textContent = gainers.length ? gainers[0].symbol : '—';
+  document.getElementById('stat-loser').textContent  = losers.length  ? losers[0].symbol  : '—';
+  document.getElementById('stat-spikes').textContent = spikes.length;
+}}
+
+// Re-render on any toggle change
+document.querySelectorAll('.filters input').forEach(el => el.addEventListener('change', render));
+
+render();
+setTimeout(() => location.reload(), 60000);
+</script>
 </body>
 </html>"""
     return Response(html, mimetype="text/html")
