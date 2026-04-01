@@ -134,7 +134,7 @@ def spikes():
     t = today()
     rows = query(con, """
         SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume, avg_volume,
-               ROUND(CAST(volume AS NUMERIC)/NULLIF(avg_volume,0), 1) AS spike_ratio
+               ROUND((CAST(volume AS NUMERIC)/NULLIF(CAST(avg_volume AS NUMERIC),0))::numeric, 1) AS spike_ratio
         FROM snapshots
         WHERE ts::date=%s AND avg_volume > 0
         ORDER BY symbol, ts DESC
