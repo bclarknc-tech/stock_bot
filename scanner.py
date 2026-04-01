@@ -6,8 +6,7 @@ Sends a daily 9am email report with top movers, losers, and volume spikes.
 
 import os
 import json
-import psycopg2
-import psycopg2.extras
+import sqlite3
 import smtplib
 import logging
 from dotenv import load_dotenv
@@ -48,7 +47,7 @@ SMTP_USER     = os.environ["SMTP_USER"]          # your Gmail address
 SMTP_PASSWORD = os.environ["SMTP_PASSWORD"]      # Gmail app password
 REPORT_TO     = os.environ["REPORT_TO"]          # recipient email
 
-DATABASE_URL  = os.environ["DATABASE_URL"]        # Postgres connection string
+DB_PATH       = os.getenv("DB_PATH", "market_data.db")
 
 # Volume spike threshold: flag if volume > N × 30-day average
 VOLUME_SPIKE_MULTIPLIER = float(os.getenv("VOLUME_SPIKE_MULTIPLIER", 3.0))
@@ -61,46 +60,39 @@ data_client = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, base_url=ALPACA_B
 
 
 # ── Database ───────────────────────────────────────────────────────────────
-def get_conn():
-    return psycopg2.connect(DATABASE_URL)
-
-
 def init_db():
-    con = get_conn()
+    con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
-    cur.execute("""
+    cur.executescript("""
         CREATE TABLE IF NOT EXISTS snapshots (
-            id          SERIAL PRIMARY KEY,
-            ts          TIMESTAMPTZ NOT NULL,
-            session     TEXT NOT NULL,
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts          TEXT NOT NULL,
+            session     TEXT NOT NULL,   -- premarket | regular | afterhours
             symbol      TEXT NOT NULL,
             price       REAL,
             change_pct  REAL,
-            volume      BIGINT,
+            volume      INTEGER,
             avg_volume  REAL
-        )
+        );
+        CREATE INDEX IF NOT EXISTS idx_ts   ON snapshots(ts);
+        CREATE INDEX IF NOT EXISTS idx_sym  ON snapshots(symbol);
     """)
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_ts  ON snapshots(ts)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_sym ON snapshots(symbol)")
     con.commit()
-    cur.close()
     con.close()
-    log.info("Postgres database ready")
+    log.info("Database ready: %s", DB_PATH)
 
 
 def save_snapshots(rows: list[dict], session: str):
     if not rows:
         return
     ts = datetime.now(ET).isoformat()
-    con = get_conn()
-    cur = con.cursor()
-    psycopg2.extras.execute_batch(cur,
+    con = sqlite3.connect(DB_PATH)
+    con.executemany(
         "INSERT INTO snapshots (ts, session, symbol, price, change_pct, volume, avg_volume) "
-        "VALUES (%(ts)s, %(session)s, %(symbol)s, %(price)s, %(change_pct)s, %(volume)s, %(avg_volume)s)",
+        "VALUES (:ts, :session, :symbol, :price, :change_pct, :volume, :avg_volume)",
         [{**r, "ts": ts, "session": session} for r in rows],
     )
     con.commit()
-    cur.close()
     con.close()
 
 
@@ -159,23 +151,28 @@ def fetch_snapshots(symbols: list[str]) -> pd.DataFrame:
     if df.empty:
         return df
 
-    # Enrich with 30-day average volume from DB
-    df["avg_volume"] = df["symbol"].apply(get_avg_volume)
+    # Enrich with 30-day average volume from DB — single bulk query
+    avg_map = get_avg_volumes_bulk(df["symbol"].tolist())
+    df["avg_volume"] = df["symbol"].map(avg_map)
     return df
 
 
-def get_avg_volume(symbol: str) -> float | None:
-    """Pull 30-day average volume from DB snapshots."""
+def get_avg_volumes_bulk(symbols: list) -> dict:
+    """Pull 30-day average volume for all symbols in one query."""
+    if not symbols:
+        return {}
     con = get_conn()
     cur = con.cursor()
     cur.execute(
-        "SELECT AVG(volume) FROM snapshots WHERE symbol=%s AND ts >= NOW() - INTERVAL '30 days'",
-        (symbol,),
+        "SELECT symbol, AVG(volume) FROM snapshots "
+        "WHERE symbol = ANY(%s) AND ts >= NOW() - INTERVAL '30 days' "
+        "GROUP BY symbol",
+        (symbols,),
     )
-    row = cur.fetchone()
+    rows = cur.fetchall()
     cur.close()
     con.close()
-    return row[0] if row and row[0] else None
+    return {row[0]: row[1] for row in rows if row[1] is not None}
 
 
 # ── Session detector ───────────────────────────────────────────────────────
@@ -257,7 +254,7 @@ def build_report() -> dict:
     - pre-market movers summary
     """
     today = date.today().isoformat()
-    con = get_conn()
+    con = sqlite3.connect(DB_PATH)
 
     def query(sql, params=()):
         return pd.read_sql_query(sql, con, params=params)
@@ -266,7 +263,7 @@ def build_report() -> dict:
     latest = query("""
         SELECT symbol, price, change_pct, volume, avg_volume, session
         FROM snapshots
-        WHERE ts::date = %s
+        WHERE date(ts) = ?
         ORDER BY ts DESC
     """, (today,))
 
@@ -669,7 +666,7 @@ def run_scheduler():
     init_db()
     log.info("Stock bot starting — PID %d — %s", os.getpid(), datetime.now(ET).isoformat())
 
-    schedule.every(1).minutes.do(scan)
+    schedule.every(5).minutes.do(scan)
 
     # 09:00 ET varies in UTC due to DST — use an ET-aware wrapper instead
     def send_report_if_et_9am():
@@ -700,7 +697,11 @@ def run_scheduler():
 
 
 def main():
-    run_scheduler()
+    t = threading.Thread(target=run_scheduler, daemon=True)
+    t.start()
+    port = int(os.getenv("PORT", 8080))
+    log.info("Web server on port %d", port)
+    flask_app.run(host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
