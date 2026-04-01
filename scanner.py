@@ -669,7 +669,7 @@ def run_scheduler():
     init_db()
     log.info("Stock bot starting — PID %d — %s", os.getpid(), datetime.now(ET).isoformat())
 
-    schedule.every(5).minutes.do(scan)
+    schedule.every(1).minutes.do(scan)
 
     # 09:00 ET varies in UTC due to DST — use an ET-aware wrapper instead
     def send_report_if_et_9am():
