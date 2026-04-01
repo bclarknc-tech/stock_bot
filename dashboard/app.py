@@ -14,7 +14,7 @@ from flask import Flask, jsonify, send_from_directory
 app = Flask(__name__, static_folder="static")
 
 DATABASE_URL = os.environ["DATABASE_URL"]
-TOP_N = int(os.getenv("TOP_N", 10))
+TOP_N = int(os.getenv("TOP_N", 25))
 VOLUME_SPIKE_MULTIPLIER = float(os.getenv("VOLUME_SPIKE_MULTIPLIER", 3.0))
 ET = ZoneInfo("America/New_York")
 
@@ -33,6 +33,19 @@ def query(con, sql, params=()):
 
 def today():
     return date.today().isoformat()
+
+
+def add_score(rows):
+    """Add purchase score: (volume/avg_volume) * abs(change_pct). Higher = stronger signal."""
+    for r in rows:
+        vol = r.get("volume") or 0
+        avg = r.get("avg_volume") or 0
+        pct = abs(r.get("change_pct") or 0)
+        if avg > 0:
+            r["score"] = round((vol / avg) * pct, 1)
+        else:
+            r["score"] = round(pct, 1)  # no avg yet, just use pct
+    return rows
 
 
 def init_db():
@@ -103,13 +116,14 @@ def gainers():
     con = get_db()
     t = today()
     rows = query(con, """
-        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume
+        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume, avg_volume
         FROM snapshots
         WHERE ts::date=%s AND change_pct IS NOT NULL
         ORDER BY symbol, ts DESC
     """, (t,))
     con.close()
-    rows.sort(key=lambda r: r["change_pct"] or 0, reverse=True)
+    rows = add_score(rows)
+    rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:TOP_N])
 
 
@@ -118,13 +132,15 @@ def losers():
     con = get_db()
     t = today()
     rows = query(con, """
-        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume
+        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume, avg_volume
         FROM snapshots
         WHERE ts::date=%s AND change_pct IS NOT NULL
         ORDER BY symbol, ts DESC
     """, (t,))
     con.close()
-    rows.sort(key=lambda r: r["change_pct"] or 0)
+    rows = add_score(rows)
+    rows = [r for r in rows if (r.get("change_pct") or 0) < 0]
+    rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:TOP_N])
 
 
@@ -141,7 +157,8 @@ def spikes():
     """, (t,))
     con.close()
     rows = [r for r in rows if r.get("spike_ratio") and r["spike_ratio"] >= VOLUME_SPIKE_MULTIPLIER]
-    rows.sort(key=lambda r: r["spike_ratio"] or 0, reverse=True)
+    rows = add_score(rows)
+    rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:TOP_N])
 
 
@@ -150,13 +167,14 @@ def premarket():
     con = get_db()
     t = today()
     rows = query(con, """
-        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume
+        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume, avg_volume
         FROM snapshots
         WHERE ts::date=%s AND session='premarket' AND change_pct IS NOT NULL
         ORDER BY symbol, ts DESC
     """, (t,))
     con.close()
-    rows.sort(key=lambda r: abs(r["change_pct"] or 0), reverse=True)
+    rows = add_score(rows)
+    rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:20])
 
 
@@ -165,13 +183,14 @@ def afterhours():
     con = get_db()
     t = today()
     rows = query(con, """
-        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume
+        SELECT DISTINCT ON (symbol) symbol, price, change_pct, volume, avg_volume
         FROM snapshots
         WHERE ts::date=%s AND session='afterhours' AND change_pct IS NOT NULL
         ORDER BY symbol, ts DESC
     """, (t,))
     con.close()
-    rows.sort(key=lambda r: abs(r["change_pct"] or 0), reverse=True)
+    rows = add_score(rows)
+    rows.sort(key=lambda r: r["score"], reverse=True)
     return jsonify(rows[:20])
 
 
